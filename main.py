@@ -140,16 +140,29 @@ def fetch_pexels_image(orientation: str, out_path: Path) -> Path:
         raise RuntimeError("PEXELS_API_KEY орнатылмаған.")
 
     query = random.choice(PEXELS_QUERIES)
-    log(f"Pexels-тен сурет іздеу: '{query}' ({orientation})")
+    log(f"Pexels-тен сурет іздеу: '{query}' ({orientation}, color=red)")
 
-    resp = requests.get(
-        "https://api.pexels.com/v1/search",
-        headers={"Authorization": PEXELS_API_KEY},
-        params={"query": query, "per_page": 15, "orientation": orientation},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    photos = resp.json().get("photos", [])
+    def search(use_color: bool) -> list[dict]:
+        params = {"query": query, "per_page": 15, "orientation": orientation}
+        if use_color:
+            params["color"] = "red"
+        resp = requests.get(
+            "https://api.pexels.com/v1/search",
+            headers={"Authorization": PEXELS_API_KEY},
+            params=params,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json().get("photos", [])
+
+    # CRIMSONROOM брендіне сай ең алдымен тек қызыл түсі басым суреттерді
+    # сұраймыз; сирек сұраныста бос нәтиже қайтарса, түс сүзгісінсіз
+    # қайталаймыз (сұраныс мәтінінің өзі де "red"/"neon" болғандықтан
+    # нәтиже баяғыда да негізінен қызыл болып қалады).
+    photos = search(use_color=True)
+    if not photos:
+        log("color=red бойынша нәтиже жоқ — түс сүзгісінсіз қайталанады.")
+        photos = search(use_color=False)
     if not photos:
         raise RuntimeError(f"Pexels '{query}' сұранысы бойынша нәтиже қайтармады.")
 
