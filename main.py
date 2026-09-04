@@ -59,17 +59,20 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 PEXELS_QUERIES = [
-    "red neon sign love",
-    "neon text dark bedroom",
-    "glowing red sign quote",
-    "neon words aesthetic",
-    "red neon quotes bedroom",
+    "woman red light portrait dark room",
     "sensual woman red light silhouette",
-    "seductive silhouette dark room",
-    "intimate red aesthetic portrait",
+    "seductive woman dark red aesthetic",
     "woman red neon glow bedroom",
+    "moody portrait red lighting woman",
+    "woman shadow red light bedroom",
+    "intimate red aesthetic portrait woman",
     "romantic couple silhouette red light",
+    "woman dark room red mood lighting",
 ]
+# ЕСКЕРТУ: "neon sign" секілді сұраныстар қоспаңыз — олар адам суретінің
+# орнына физикалық жарнама маңдайшасының фотосын қайтарады (референсте
+# көрсетілгендей адам портреті емес). Барлық сұраныс адам портретіне
+# бағытталуы керек, неон мәтін оның үстіне бөлек Pillow арқылы салынады.
 # ЕСКЕРТУ: Pexels тек SFW (ашық жыныстық мазмұнсыз) stock суреттерді ғана
 # индекстейді — жоғарыдағы сұраныстар нәтижесі көркем/эстетикалық
 # сипатта болады, нақты ашық мазмұн емес. YouTube монетизация
