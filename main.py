@@ -71,6 +71,10 @@ NEON_FONT_PATH = Path(__file__).parent / "assets" / "fonts" / "Neonderthaw-Regul
 NEON_GLOW_COLOR = (255, 35, 70)   # қызыл-қызғылт жарық
 NEON_CORE_COLOR = (255, 235, 240)  # ақшыл-ыстық орталық
 
+# Telegram — әр видео жүктелген сайын хабарлама жіберу үшін.
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+
 # Модель — HF Hub-тан салмақтарды тікелей жүктеп, локалды іске қосамыз.
 # Бұл community Gradio Space-тердің API сигнатурасы өзгеруіне/өшуіне тәуелді
 # емес: тек модель салмақтары ғана керек, олар өзгермейді.
@@ -471,6 +475,23 @@ def upload_to_youtube(file_path: Path, metadata: dict) -> str:
 
 
 # --------------------------------------------------------------------------
+# 6) TELEGRAM ХАБАРЛАМАСЫ
+# --------------------------------------------------------------------------
+
+def notify_telegram(text: str) -> None:
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            data={"chat_id": TELEGRAM_CHAT_ID, "text": text},
+            timeout=15,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log(f"Telegram хабарламасы жіберілмеді: {exc}")
+
+
+# --------------------------------------------------------------------------
 # ГЛАВНЫЙ КОНВЕЙЕР
 # --------------------------------------------------------------------------
 
@@ -495,7 +516,12 @@ def run_pipeline(mode: str, upload: bool = True) -> Path:
     if upload:
         metadata = generate_seo_metadata(mode)
         log(f"Тақырып: {metadata['title']}")
-        upload_to_youtube(final_video_path, metadata)
+        video_id = upload_to_youtube(final_video_path, metadata)
+        notify_telegram(
+            f"✅ CRIMSONROOM: жаңа видео жүктелді ({mode})\n"
+            f"{metadata['title']}\n"
+            f"https://youtu.be/{video_id}"
+        )
     else:
         log("Жүктеу өткізіп жіберілді (--no-upload).")
 
@@ -512,6 +538,7 @@ def main() -> None:
         run_pipeline(args.mode, upload=not args.no_upload)
     except Exception as exc:  # noqa: BLE001
         log(f"ҚАТЕ: {exc}")
+        notify_telegram(f"❌ CRIMSONROOM: видео генерациясы сәтсіз аяқталды ({args.mode})\n{exc}")
         sys.exit(1)
 
 
