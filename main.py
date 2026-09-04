@@ -62,7 +62,16 @@ PEXELS_QUERIES = [
     "glowing red sign quote",
     "neon words aesthetic",
     "red neon quotes bedroom",
+    "sensual woman red light silhouette",
+    "seductive silhouette dark room",
+    "intimate red aesthetic portrait",
+    "woman red neon glow bedroom",
+    "romantic couple silhouette red light",
 ]
+# ЕСКЕРТУ: Pexels тек SFW (ашық жыныстық мазмұнсыз) stock суреттерді ғана
+# индекстейді — жоғарыдағы сұраныстар нәтижесі көркем/эстетикалық
+# сипатта болады, нақты ашық мазмұн емес. YouTube монетизация
+# саясатына қайшы келетін сұраныстар қоспаңыз (жас шектеуі/страйк қаупі).
 MAX_IMAGE_DIMENSION = 1600  # жүктелген суретті осы өлшемге дейін кішірейтеміз
 
 # Видео мұқабасына қосылатын жарқыраған неон мәтіндер (кездейсоқ таңдалады).

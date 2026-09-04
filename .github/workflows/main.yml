@@ -19,7 +19,7 @@ on:
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
 
     env:
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
@@ -62,7 +62,18 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pipeline — Shorts
+      # Күніне 3 Shorts + 1 ұзын видео = 4 видео. Әр steps өз алдына
+      # толық pipeline (жаңа сурет + жаңа музыка + жүктеу) жүргізеді,
+      # сондықтан 3 Shorts бір-бірінен әртүрлі болады.
+      - name: Run pipeline — Shorts #1
+        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
+        run: python main.py --mode shorts
+
+      - name: Run pipeline — Shorts #2
+        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
+        run: python main.py --mode shorts
+
+      - name: Run pipeline — Shorts #3
         if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
         run: python main.py --mode shorts
 
