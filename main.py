@@ -13,7 +13,9 @@ Bedroom R&B / Dark Romance / Chill Music — YouTube автопилот.
      unique трек жасалады да, FFmpeg crossfade + stream_loop арқылы керекті
      ұзындыққа дейін "созылады" (толық 10-15 минутты генерациялау емес).
   3) FFmpeg арқылы сурет + аудионы бір MP4 видеоға айналдыру (fade-in/out)
-  4) Claude (Anthropic API) арқылы SEO атау/сипаттама/хэштег генерациялау
+  4) Google Gemini API арқылы SEO атау/сипаттама/хэштег генерациялау —
+     әр видеоға кездейсоқ эмоционалды акцент таңдалып, күн сайын
+     қайталанбайтын мәтін жазылады
   5) YouTube Data API v3 арқылы дайын видеоны автоматты жүктеу
 
 Қолдану:
@@ -372,8 +374,24 @@ def render_video(image_path: Path, audio_path: Path, width: int, height: int,
 
 
 # --------------------------------------------------------------------------
-# 4) SEO МЕТАДЕРЕКТЕРІ (Claude / Anthropic API)
+# 4) SEO МЕТАДЕРЕКТЕРІ (Google Gemini API)
 # --------------------------------------------------------------------------
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+
+# Әр видеоға SEO мәтінінің эмоционалды акцентін кездейсоқ таңдау — осылай
+# Gemini күн сайын мүлдем басқаша, қайталанбайтын атау/сипаттама жазады.
+SEO_ANGLES = [
+    "longing and desire",
+    "late-night comfort and intimacy",
+    "temptation and tension",
+    "slow-burn romance",
+    "heartbreak and nostalgia",
+    "obsession and possessiveness",
+    "quiet vulnerability after dark",
+]
+
 
 def generate_seo_metadata(mode: str) -> dict:
     kind = "YouTube Shorts (қысқа, тік форматты)" if mode == "shorts" else "YouTube ұзын видео (10-15 минут)"
@@ -393,17 +411,18 @@ def generate_seo_metadata(mode: str) -> dict:
         ],
     }
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        log("ANTHROPIC_API_KEY жоқ — үлгі (fallback) метадеректер қолданылады.")
+    if not GEMINI_API_KEY:
+        log("GEMINI_API_KEY жоқ — үлгі (fallback) метадеректер қолданылады.")
         return fallback
 
+    angle = random.choice(SEO_ANGLES)
     try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=api_key)
         prompt = f"""Сен YouTube SEO мамансысың. "Bedroom R&B / Dark Romance / Chill Music"
 бағытындағы {kind} үшін SEO-оңтайландырылған метадеректер жаса.
+
+Бұл видеоның эмоционалды акценті: "{angle}". Атау мен сипаттаманы дәл
+осы көңіл-күйге бағыттап жаз, бұрын жазылған нұсқалармен қайталанбайтын,
+жаңа тұжырымдамалар қолдан.
 
 Тек келесі пішіндегі таза JSON қайтар (басқа мәтін болмасын):
 {{
@@ -412,12 +431,17 @@ def generate_seo_metadata(mode: str) -> dict:
   "tags": ["10-15 релевантты кілт сөз/тег"]
 }}"""
 
-        msg = client.messages.create(
-            model="claude-sonnet-5",
-            max_tokens=800,
-            messages=[{"role": "user", "content": prompt}],
+        resp = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
+            params={"key": GEMINI_API_KEY},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 1.2},
+            },
+            timeout=30,
         )
-        text = "".join(block.text for block in msg.content if hasattr(block, "text"))
+        resp.raise_for_status()
+        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
         text = text.strip()
         if text.startswith("```"):
             text = text.strip("`")
@@ -429,7 +453,7 @@ def generate_seo_metadata(mode: str) -> dict:
             "tags": data["tags"],
         }
     except Exception as exc:  # noqa: BLE001
-        log(f"Claude арқылы SEO генерациялау сәтсіз болды ({exc}) — fallback қолданылады.")
+        log(f"Gemini арқылы SEO генерациялау сәтсіз болды ({exc}) — fallback қолданылады.")
         return fallback
 
 
