@@ -1,0 +1,77 @@
+name: Bedroom R&B Auto Pipeline
+
+on:
+  schedule:
+    # 20:00 Almaty (UTC+5) = 15:00 UTC, күн сайын
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Қай режимде жүргізу керек"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - both
+          - shorts
+          - long
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      YT_PRIVACY_STATUS: "public"
+      # HF_TOKEN міндетті емес — тек ашық (public) модель салмақтарын
+      # жүктегенде анонимді rate-limit-ке тап болсаңыз пайдалы.
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      # MusicGen салмақтарын (~1.5GB) күн сайын қайта жүктемеу үшін
+      # кэштейміз — бұл workflow уақытын айтарлықтай қысқартады (алғашқы
+      # ран-нан кейін).
+      - name: Cache Hugging Face model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-models-musicgen-small-v1
+
+      - name: Install PyTorch (CPU-only build — жылдам әрі жеңіл)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run pipeline — Shorts
+        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
+        run: python main.py --mode shorts
+
+      - name: Run pipeline — Long video
+        if: github.event.inputs.mode == 'long' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
+        run: python main.py --mode long
+
+      - name: Upload generated files as artifact (backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-videos-${{ github.run_id }}
+          path: output/
+          retention-days: 7
