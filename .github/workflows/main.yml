@@ -2,24 +2,27 @@ name: Bedroom R&B Auto Pipeline
 
 on:
   schedule:
-    # 20:00 Almaty (UTC+5) = 15:00 UTC, күн сайын
-    - cron: "0 15 * * *"
+    # 24 сағатты 4-ке бөліп, әрқайсысы 6 сағат сайын іске қосылады —
+    # барлық видео бір мезгілде емес, күн бойы таралып жүктеледі.
+    - cron: "0 3 * * *"   # 08:00 Almaty — Shorts #1
+    - cron: "0 9 * * *"   # 14:00 Almaty — Shorts #2
+    - cron: "0 15 * * *"  # 20:00 Almaty — Shorts #3
+    - cron: "0 21 * * *"  # 02:00 Almaty (келесі күн) — ұзын видео
   workflow_dispatch:
     inputs:
       mode:
-        description: "Қай режимде жүргізу керек"
+        description: "Қай режимде жүргізу керек (қолмен іске қосу үшін)"
         required: true
-        default: "both"
+        default: "shorts"
         type: choice
         options:
-          - both
           - shorts
           - long
 
 jobs:
   generate-and-upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 60
 
     env:
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
@@ -62,29 +65,31 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      # Күніне 3 Shorts + 1 ұзын видео = 4 видео. Әр steps өз алдына
-      # толық pipeline (жаңа сурет + жаңа музыка + жүктеу) жүргізеді,
-      # сондықтан 3 Shorts бір-бірінен әртүрлі болады.
-      - name: Run pipeline — Shorts #1
-        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
-        run: python main.py --mode shorts
+      # Осы триггер cron кестесінің қай уақытында келгеніне қарай режимді
+      # таңдайды: 03/09/15 UTC — Shorts, 21 UTC — ұзын видео. Қолмен іске
+      # қосқанда (workflow_dispatch) таңдаған mode пайдаланылады.
+      - name: Determine mode for this run
+        id: pick_mode
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 21 * * *")
+              echo "mode=long" >> "$GITHUB_OUTPUT"
+              ;;
+            "0 3 * * *"|"0 9 * * *"|"0 15 * * *")
+              echo "mode=shorts" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "mode=${{ github.event.inputs.mode || 'shorts' }}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
-      - name: Run pipeline — Shorts #2
-        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
-        run: python main.py --mode shorts
-
-      - name: Run pipeline — Shorts #3
-        if: github.event.inputs.mode == 'shorts' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
-        run: python main.py --mode shorts
-
-      - name: Run pipeline — Long video
-        if: github.event.inputs.mode == 'long' || github.event.inputs.mode == 'both' || github.event.inputs.mode == ''
-        run: python main.py --mode long
+      - name: Run pipeline
+        run: python main.py --mode ${{ steps.pick_mode.outputs.mode }}
 
       - name: Upload generated files as artifact (backup)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: generated-videos-${{ github.run_id }}
+          name: generated-video-${{ github.run_id }}
           path: output/
           retention-days: 7
